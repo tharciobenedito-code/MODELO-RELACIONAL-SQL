@@ -1,0 +1,59 @@
+CREATE TABLE categoria (
+    id     SERIAL PRIMARY KEY,
+    nome   VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE tamanho (
+    id     SERIAL PRIMARY KEY,
+    nome   VARCHAR(20) NOT NULL UNIQUE,
+    ordem  SMALLINT NOT NULL
+);
+
+CREATE TABLE ingrediente (
+    id     SERIAL PRIMARY KEY,
+    nome   VARCHAR(60) NOT NULL UNIQUE
+);
+
+CREATE TABLE pizza (
+    id            SERIAL PRIMARY KEY,
+    nome          VARCHAR(80) NOT NULL,
+    descricao     TEXT,
+    categoria_id  INTEGER NOT NULL REFERENCES categoria(id),
+    disponivel    BOOLEAN NOT NULL DEFAULT TRUE,
+    criado_em     TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE pizza_preco (
+    pizza_id    INTEGER NOT NULL REFERENCES pizza(id) ON DELETE CASCADE,
+    tamanho_id  INTEGER NOT NULL REFERENCES tamanho(id),
+    preco       NUMERIC(8,2) NOT NULL CHECK (preco >= 0),
+    PRIMARY KEY (pizza_id, tamanho_id)
+);
+
+CREATE TABLE pizza_ingrediente (
+    pizza_id        INTEGER NOT NULL REFERENCES pizza(id) ON DELETE CASCADE,
+    ingrediente_id  INTEGER NOT NULL REFERENCES ingrediente(id),
+    PRIMARY KEY (pizza_id, ingrediente_id)
+);
+
+CREATE INDEX idx_pizza_categoria   ON pizza(categoria_id);
+CREATE INDEX idx_pizza_disponivel  ON pizza(disponivel);
+
+- QUERIES
+-- ============================
+
+-- GET /pizzas
+SELECT p.id, p.nome, c.nome AS categoria, MIN(pp.preco) AS preco_a_partir_de
+FROM pizza p
+JOIN categoria c ON c.id = p.categoria_id
+JOIN pizza_preco pp ON pp.pizza_id = p.id
+WHERE p.disponivel = TRUE
+GROUP BY p.id, c.nome
+ORDER BY c.nome, p.nome;
+
+-- GET /pizzas/:id (preços)
+SELECT t.nome AS tamanho, pp.preco
+FROM pizza_preco pp
+JOIN tamanho t ON t.id = pp.tamanho_id
+WHERE pp.pizza_id = $1
+ORDER BY t.ordem;
